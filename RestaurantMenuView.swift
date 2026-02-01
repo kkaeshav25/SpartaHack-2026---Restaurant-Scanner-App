@@ -2,6 +2,7 @@ import SwiftUI
 
 struct RestaurantMenuView: View {
     let restaurant: RestaurantResult
+    let userLocation: CLLocation
     
     @State private var menuItems: [MenuItem] = []
     @State private var isLoading = false
@@ -10,8 +11,6 @@ struct RestaurantMenuView: View {
     @State private var selectedItems: [MenuItem: Int] = [:]
     @State private var showQuote = false
     @State private var deliveryQuote: DeliveryQuote?
-    
-    @StateObject private var locationManager = LocationManager()
     
     var body: some View {
         VStack(spacing: 0) {
@@ -152,17 +151,12 @@ struct RestaurantMenuView: View {
     }
     
     func loadMenu() {
-        guard let location = locationManager.location else {
-            errorMessage = "Location not available"
-            return
-        }
-        
         isLoading = true
         errorMessage = nil
         
         fetchRestaurantMenu(
             restaurantName: restaurant.name,
-            location: location
+            location: userLocation
         ) { result in
             DispatchQueue.main.async {
                 isLoading = false
