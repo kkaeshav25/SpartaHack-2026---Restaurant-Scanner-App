@@ -64,4 +64,10 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         print("📍 Location authorization changed")
         checkLocationAuthorization()
     }
+    
+    func openLocationSettings() {
+        if let settingsURL = URL(string: UIApplication.openSettingsURLString) {
+            UIApplication.shared.open(settingsURL)
+        }
+    }
 }

@@ -59,7 +59,7 @@ struct ContentView: View {
             VStack(spacing: 8) {
                 if let status = locationManager.authorizationStatus {
                     switch status {
-                    case .notDetermined, .denied, .restricted:
+                    case .notDetermined:
                         VStack(spacing: 10) {
                             Text("📍 Location Permission Required")
                                 .font(.subheadline)
@@ -83,6 +83,32 @@ struct ContentView: View {
                         }
                         .padding()
                         .background(Color(.systemYellow).opacity(0.15))
+                        .cornerRadius(8)
+                        .padding(.horizontal)
+                    case .denied, .restricted:
+                        VStack(spacing: 10) {
+                            Text("📍 Location Permission Denied")
+                                .font(.subheadline)
+                                .fontWeight(.semibold)
+                            
+                            Text("Open Settings to enable location access.")
+                                .font(.caption)
+                                .foregroundColor(.gray)
+                            
+                            Button(action: {
+                                locationManager.openLocationSettings()
+                            }) {
+                                Text("Open Settings")
+                                    .font(.caption)
+                                    .foregroundColor(.white)
+                                    .padding(.vertical, 8)
+                                    .padding(.horizontal, 16)
+                                    .background(Color.red)
+                                    .cornerRadius(6)
+                            }
+                        }
+                        .padding()
+                        .background(Color(.systemRed).opacity(0.15))
                         .cornerRadius(8)
                         .padding(.horizontal)
                     case .authorizedAlways, .authorizedWhenInUse:
