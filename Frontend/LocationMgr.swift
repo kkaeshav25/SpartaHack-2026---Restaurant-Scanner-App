@@ -1,6 +1,7 @@
 import CoreLocation
 import Foundation
 import Combine
+
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     @Published var location: CLLocation?
@@ -11,6 +12,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         super.init()
         manager.delegate = self
         manager.desiredAccuracy = kCLLocationAccuracyBest
+        print("📍 LocationManager initialized")
         checkLocationAuthorization()
     }
     
@@ -20,18 +22,22 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
         
         switch status {
         case .notDetermined:
-            print("📍 Location: Requesting authorization...")
+            print("📍 Location: Permission not determined - requesting...")
             manager.requestWhenInUseAuthorization()
         case .restricted:
-            print("❌ Location: Restricted")
-            errorMessage = "Location access is restricted"
+            print("❌ Location: Restricted by device policy")
+            errorMessage = "Location access is restricted by device policy"
         case .denied:
-            print("❌ Location: Denied")
-            errorMessage = "Location access denied. Enable in Settings."
-        case .authorizedAlways, .authorizedWhenInUse:
-            print("✅ Location: Authorized")
+            print("❌ Location: User denied permission")
+            errorMessage = "Location access denied. Please enable in Settings > Privacy > Location Services"
+        case .authorizedAlways:
+            print("✅ Location: Authorized (Always)")
+            manager.startUpdatingLocation()
+        case .authorizedWhenInUse:
+            print("✅ Location: Authorized (When in Use)")
             manager.startUpdatingLocation()
         @unknown default:
+            print("⚠️ Location: Unknown authorization status")
             break
         }
     }
@@ -55,7 +61,7 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     }
     
     func locationManagerDidChangeAuthorization(_ manager: CLLocationManager) {
-        print("📍 Location authorization changed: \(manager.authorizationStatus.rawValue)")
+        print("📍 Location authorization changed")
         checkLocationAuthorization()
     }
 }

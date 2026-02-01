@@ -6,7 +6,7 @@
     <key>NSLocationWhenInUseUsageDescription</key>
     <string>We need your location to find nearby restaurants and show menus based on where you are.</string>
     
-    <key>NSLocationAlwaysUsageDescription</key>
+    <key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
     <string>We need your location to find nearby restaurants.</string>
     
     <!-- REQUIRED: Camera permissions -->
