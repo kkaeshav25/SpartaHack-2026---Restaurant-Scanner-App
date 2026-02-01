@@ -9,8 +9,6 @@ struct RestaurantMenuView: View {
     @State private var errorMessage: String?
     @State private var searchQuery = ""
     @State private var selectedItems: [MenuItem: Int] = [:]
-    @State private var showQuote = false
-    @State private var deliveryQuote: DeliveryQuote?
     
     var body: some View {
         VStack(spacing: 0) {
@@ -102,19 +100,6 @@ struct RestaurantMenuView: View {
                         Text("$\(String(format: "%.2f", subtotal))")
                             .fontWeight(.bold)
                     }
-                    
-                    Button(action: { showQuote = true }) {
-                        HStack {
-                            Image(systemName: "cart.fill")
-                            Text("Get Delivery Quote")
-                        }
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.blue)
-                        .cornerRadius(10)
-                    }
                 }
                 .padding()
                 .background(Color(.systemBackground))
@@ -124,13 +109,6 @@ struct RestaurantMenuView: View {
         .navigationBarTitleDisplayMode(.inline)
         .onAppear {
             loadMenu()
-        }
-        .sheet(isPresented: $showQuote) {
-            if let quote = deliveryQuote {
-                DeliveryQuoteView(quote: quote, restaurant: restaurant)
-            } else {
-                LoadingQuoteView(onLoad: calculateQuote)
-            }
         }
     }
     
@@ -182,20 +160,6 @@ struct RestaurantMenuView: View {
                 selectedItems[item] = count - 1
             }
         }
-    }
-    
-    func calculateQuote() {
-        // Calculate delivery quote
-        // This would call the backend endpoint
-        // For now, showing placeholder
-        deliveryQuote = DeliveryQuote(
-            subtotal: subtotal,
-            delivery_fee: 3.99,
-            service_fee: subtotal * 0.15,
-            tax: subtotal * 0.08,
-            total: subtotal + 3.99 + (subtotal * 0.15) + (subtotal * 0.08),
-            estimated_delivery_time: 30
-        )
     }
 }
 
@@ -287,112 +251,4 @@ struct MenuItemsResponse: Codable {
     let restaurant_name: String
     let items: [MenuItem]
     let total_items: Int
-}
-
-struct DeliveryQuote: Codable {
-    let subtotal: Double
-    let delivery_fee: Double
-    let service_fee: Double
-    let tax: Double
-    let total: Double
-    let estimated_delivery_time: Int
-}
-
-struct DeliveryQuoteView: View {
-    let quote: DeliveryQuote
-    let restaurant: RestaurantResult
-    
-    var body: some View {
-        NavigationView {
-            VStack(spacing: 20) {
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("Delivery Quote")
-                        .font(.title2)
-                        .fontWeight(.bold)
-                    
-                    Text(restaurant.name)
-                        .font(.headline)
-                        .foregroundColor(.gray)
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                
-                VStack(spacing: 16) {
-                    QuoteRow(label: "Subtotal", amount: quote.subtotal)
-                    QuoteRow(label: "Delivery Fee", amount: quote.delivery_fee)
-                    QuoteRow(label: "Service Fee", amount: quote.service_fee)
-                    QuoteRow(label: "Tax", amount: quote.tax)
-                    
-                    Divider()
-                    
-                    HStack {
-                        Text("Total")
-                            .font(.headline)
-                            .fontWeight(.bold)
-                        Spacer()
-                        Text("$\(String(format: "%.2f", quote.total))")
-                            .font(.title3)
-                            .fontWeight(.bold)
-                            .foregroundColor(.blue)
-                    }
-                }
-                .padding()
-                .background(Color(.systemGray6))
-                .cornerRadius(12)
-                .padding(.horizontal)
-                
-                VStack(alignment: .leading, spacing: 8) {
-                    HStack {
-                        Image(systemName: "clock")
-                            .foregroundColor(.orange)
-                        Text("Estimated delivery: \(quote.estimated_delivery_time) min")
-                            .font(.subheadline)
-                    }
-                }
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .padding()
-                
-                Spacer()
-                
-                Button(action: {}) {
-                    Text("Order on DoorDash")
-                        .font(.headline)
-                        .foregroundColor(.white)
-                        .padding()
-                        .frame(maxWidth: .infinity)
-                        .background(Color.red)
-                        .cornerRadius(10)
-                }
-                .padding()
-            }
-            .navigationBarTitleDisplayMode(.inline)
-        }
-    }
-}
-
-struct QuoteRow: View {
-    let label: String
-    let amount: Double
-    
-    var body: some View {
-        HStack {
-            Text(label)
-                .foregroundColor(.gray)
-            Spacer()
-            Text("$\(String(format: "%.2f", amount))")
-                .fontWeight(.medium)
-        }
-    }
-}
-
-struct LoadingQuoteView: View {
-    let onLoad: () -> Void
-    
-    var body: some View {
-        VStack {
-            ProgressView("Calculating delivery quote...")
-                .padding()
-        }
-        .onAppear(perform: onLoad)
-    }
 }
