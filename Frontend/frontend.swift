@@ -52,4 +52,11 @@ class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     ) {
         location = locations.first
     }
+    
+    func locationManager(
+        _ manager: CLLocationManager,
+        didFailWithError error: Error
+    ) {
+        print("Location manager error: \(error.localizedDescription)")
+    }
 }
