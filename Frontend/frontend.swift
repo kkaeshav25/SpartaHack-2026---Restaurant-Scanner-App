@@ -35,11 +35,6 @@ struct CameraView: UIViewControllerRepresentable {
     }
 }
 
-func base64(_ image: UIImage) -> String? {
-    image.jpegData(compressionQuality: 0.7)?
-        .base64EncodedString()
-}
-
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     @Published var location: CLLocation?
