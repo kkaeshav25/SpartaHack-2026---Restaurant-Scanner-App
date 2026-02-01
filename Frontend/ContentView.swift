@@ -55,77 +55,6 @@ struct ContentView: View {
     
     var photoSearchTab: some View {
         VStack(spacing: 20) {
-            // Location Status
-            VStack(spacing: 8) {
-                if let status = locationManager.authorizationStatus {
-                    switch status {
-                    case .notDetermined:
-                        VStack(spacing: 10) {
-                            Text("📍 Location Permission Required")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            Text("We need your location to find nearby restaurants.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Button(action: {
-                                locationManager.checkLocationAuthorization()
-                            }) {
-                                Text("Enable Location")
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 16)
-                                    .background(Color.blue)
-                                    .cornerRadius(6)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemYellow).opacity(0.15))
-                        .cornerRadius(8)
-                        .padding(.horizontal)
-                    case .denied, .restricted:
-                        VStack(spacing: 10) {
-                            Text("📍 Location Permission Denied")
-                                .font(.subheadline)
-                                .fontWeight(.semibold)
-                            
-                            Text("Open Settings to enable location access.")
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                            
-                            Button(action: {
-                                locationManager.openLocationSettings()
-                            }) {
-                                Text("Open Settings")
-                                    .font(.caption)
-                                    .foregroundColor(.white)
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 16)
-                                    .background(Color.red)
-                                    .cornerRadius(6)
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemRed).opacity(0.15))
-                        .cornerRadius(8)
-                        .padding(.horizontal)
-                    case .authorizedAlways, .authorizedWhenInUse:
-                        HStack(spacing: 8) {
-                            Image(systemName: "checkmark.circle.fill")
-                                .foregroundColor(.green)
-                            Text("Location enabled")
-                                .font(.caption)
-                                .foregroundColor(.green)
-                        }
-                        .padding(8)
-                        .padding(.horizontal)
-                    @unknown default:
-                        EmptyView()
-                    }
-                }
-            }
             
             if let image = capturedImage {
                 Image(uiImage: image)
@@ -204,18 +133,10 @@ struct ContentView: View {
         .onChange(of: capturedImage) { newImage in
             guard let image = newImage else { return }
             
-            // Wait a moment for location to be available, then try
-            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                if let location = locationManager.location {
-                    findMenu(image: image, location: location)
-                } else {
-                    // Location not available - check why
-                    if let errorMsg = locationManager.errorMessage {
-                        self.errorMessage = "Location unavailable: \(errorMsg)"
-                    } else {
-                        self.errorMessage = "Waiting for GPS location... please try again in a moment."
-                    }
-                }
+            if let location = locationManager.location {
+                findMenu(image: image, location: location)
+            } else {
+                self.errorMessage = "Could not get GPS location. Try again in a few seconds."
             }
         }
     }
@@ -254,44 +175,40 @@ struct ContentView: View {
             
             if !searchResults.isEmpty {
                 List(searchResults, id: \.place_id) { restaurant in
-                    if let location = locationManager.location {
-                        NavigationLink(destination: RestaurantMenuView(restaurant: restaurant, userLocation: location, foodCraving: foodCraving)) {
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(restaurant.name)
-                                    .font(.headline)
-                                
-                                HStack(spacing: 15) {
-                                    if restaurant.rating > 0 {
-                                        HStack(spacing: 4) {
-                                            Image(systemName: "star.fill")
-                                                .foregroundColor(.orange)
-                                            Text(String(format: "%.1f", restaurant.rating))
-                                                .font(.subheadline)
-                                        }
-                                    }
-                                    
-                                    if restaurant.price_level > 0 {
-                                        HStack(spacing: 2) {
-                                            ForEach(0..<restaurant.price_level, id: \.self) { _ in
-                                                Text("$")
-                                                    .font(.subheadline)
-                                                    .foregroundColor(.green)
-                                            }
-                                        }
-                                    }
-                                    
-                                    Spacer()
-                                    
-                                    if let openNow = restaurant.open_now {
-                                        Text(openNow ? "Open" : "Closed")
-                                            .font(.caption)
-                                            .foregroundColor(openNow ? .green : .red)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text(restaurant.name)
+                            .font(.headline)
+                        
+                        HStack(spacing: 15) {
+                            if restaurant.rating > 0 {
+                                HStack(spacing: 4) {
+                                    Image(systemName: "star.fill")
+                                        .foregroundColor(.orange)
+                                    Text(String(format: "%.1f", restaurant.rating))
+                                        .font(.subheadline)
+                                }
+                            }
+                            
+                            if restaurant.price_level > 0 {
+                                HStack(spacing: 2) {
+                                    ForEach(0..<restaurant.price_level, id: \.self) { _ in
+                                        Text("$")
+                                            .font(.subheadline)
+                                            .foregroundColor(.green)
                                     }
                                 }
                             }
-                            .padding(.vertical, 8)
+                            
+                            Spacer()
+                            
+                            if let openNow = restaurant.open_now {
+                                Text(openNow ? "Open" : "Closed")
+                                    .font(.caption)
+                                    .foregroundColor(openNow ? .green : .red)
+                            }
                         }
                     }
+                    .padding(.vertical, 8)
                 }
             } else if !foodCraving.isEmpty && !searchLoading && searchError == nil {
                 VStack {
