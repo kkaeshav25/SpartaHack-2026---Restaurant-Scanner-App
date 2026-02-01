@@ -183,4 +183,3 @@ func searchRestaurants(
         }
     }.resume()
 }
-

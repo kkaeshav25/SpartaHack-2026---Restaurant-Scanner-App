@@ -176,7 +176,7 @@ struct ContentView: View {
             if !searchResults.isEmpty {
                 List(searchResults, id: \.place_id) { restaurant in
                     if let location = locationManager.location {
-                        NavigationLink(destination: RestaurantMenuView(restaurant: restaurant, userLocation: location)) {
+                        NavigationLink(destination: RestaurantMenuView(restaurant: restaurant, userLocation: location, foodCraving: foodCraving)) {
                             VStack(alignment: .leading, spacing: 8) {
                                 Text(restaurant.name)
                                     .font(.headline)
