@@ -22,7 +22,7 @@ struct ContentView: View {
     
     // Food craving search states
     @State private var foodCraving: String = ""
-    @State private var searchResults: DirectionsResponse? = nil
+    @State private var searchResults: [RestaurantResult] = []
     @State private var searchLoading = false
     @State private var searchError: String?
 
@@ -161,7 +161,7 @@ struct ContentView: View {
             }
             
             if searchLoading {
-                ProgressView("Finding \(foodCraving) nearby...")
+                ProgressView("Searching...")
                     .padding()
             }
             
@@ -173,87 +173,53 @@ struct ContentView: View {
                     .padding()
             }
             
-            if let directions = searchResults {
-                // Show directions
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        // Restaurant header
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Image(systemName: "fork.knife")
-                                    .foregroundColor(.orange)
-                                Text(directions.restaurant_name)
-                                    .font(.title2)
-                                    .fontWeight(.bold)
-                                Spacer()
-                            }
-                            
-                            if !directions.restaurant_address.isEmpty {
-                                HStack(spacing: 8) {
-                                    Image(systemName: "location.fill")
-                                        .foregroundColor(.red)
-                                        .font(.caption)
-                                    Text(directions.restaurant_address)
-                                        .font(.subheadline)
-                                        .foregroundColor(.gray)
-                                }
-                            }
-                        }
-                        .padding()
-                        .background(Color(.systemGray6))
-                        .cornerRadius(12)
-                        
-                        // Distance and duration summary
-                        VStack(spacing: 12) {
-                            HStack(spacing: 20) {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Distance")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    Text(formatDistance(directions.total_distance))
-                                        .font(.headline)
-                                }
+            if !searchResults.isEmpty {
+                List(searchResults, id: \.place_id) { restaurant in
+                    if let location = locationManager.location {
+                        NavigationLink(destination: RestaurantMenuView(restaurant: restaurant, userLocation: location)) {
+                            VStack(alignment: .leading, spacing: 8) {
+                                Text(restaurant.name)
+                                    .font(.headline)
                                 
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("Duration")
-                                        .font(.caption)
-                                        .foregroundColor(.gray)
-                                    Text(formatDuration(directions.total_duration))
-                                        .font(.headline)
+                                HStack(spacing: 15) {
+                                    if restaurant.rating > 0 {
+                                        HStack(spacing: 4) {
+                                            Image(systemName: "star.fill")
+                                                .foregroundColor(.orange)
+                                            Text(String(format: "%.1f", restaurant.rating))
+                                                .font(.subheadline)
+                                        }
+                                    }
+                                    
+                                    if restaurant.price_level > 0 {
+                                        HStack(spacing: 2) {
+                                            ForEach(0..<restaurant.price_level, id: \.self) { _ in
+                                                Text("$")
+                                                    .font(.subheadline)
+                                                    .foregroundColor(.green)
+                                            }
+                                        }
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if let openNow = restaurant.open_now {
+                                        Text(openNow ? "Open" : "Closed")
+                                            .font(.caption)
+                                            .foregroundColor(openNow ? .green : .red)
+                                    }
                                 }
-                                
-                                Spacer()
                             }
-                            .padding()
-                            .background(Color(.systemBackground))
-                            .cornerRadius(10)
+                            .padding(.vertical, 8)
                         }
-                        
-                        // Directions steps
-                        VStack(alignment: .leading, spacing: 12) {
-                            Text("Directions (\(directions.steps.count) steps)")
-                                .font(.headline)
-                                .padding(.horizontal)
-                            
-                            ForEach(Array(directions.steps.enumerated()), id: \.offset) { index, step in
-                                DirectionStepCard(
-                                    stepNumber: index + 1,
-                                    step: step
-                                )
-                            }
-                        }
-                        .padding(.horizontal)
-                        
-                        Spacer(minLength: 30)
                     }
-                    .padding(.vertical)
                 }
             } else if !foodCraving.isEmpty && !searchLoading && searchError == nil {
                 VStack {
                     Image(systemName: "fork.knife.circle")
                         .font(.system(size: 60))
                         .foregroundColor(.gray)
-                    Text("Tap search to find directions")
+                    Text("Tap search to find restaurants")
                         .font(.subheadline)
                         .foregroundColor(.gray)
                 }
@@ -277,37 +243,17 @@ struct ContentView: View {
         searchLoading = true
         searchError = nil
         
-        fetchDirections(foodCraving: foodCraving, location: location) { result in
+        searchRestaurants(foodCraving: foodCraving, location: location) { result in
             DispatchQueue.main.async {
                 searchLoading = false
                 switch result {
-                case .success(let directions):
-                    searchResults = directions
+                case .success(let response):
+                    searchResults = response.results
                 case .failure(let error):
                     searchError = error.localizedDescription
-                    searchResults = nil
+                    searchResults = []
                 }
             }
-        }
-    }
-    
-    private func formatDistance(_ meters: Double) -> String {
-        if meters >= 1000 {
-            return String(format: "%.1f km", meters / 1000)
-        } else {
-            return String(format: "%.0f m", meters)
-        }
-    }
-    
-    private func formatDuration(_ seconds: Double) -> String {
-        let minutes = Int(seconds / 60)
-        let hours = minutes / 60
-        let mins = minutes % 60
-        
-        if hours > 0 {
-            return "\(hours)h \(mins)m"
-        } else {
-            return "\(mins) min"
         }
     }
 
@@ -349,80 +295,4 @@ struct ContentView: View {
 
 }
 
-struct DirectionStepCard: View {
-    let stepNumber: Int
-    let step: DirectionStep
-    
-    @State private var isExpanded = false
-    
-    var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack(alignment: .top, spacing: 12) {
-                // Step number badge
-                Text("\(stepNumber)")
-                    .font(.headline)
-                    .foregroundColor(.white)
-                    .frame(width: 32, height: 32)
-                    .background(Color.blue)
-                    .cornerRadius(16)
-                
-                VStack(alignment: .leading, spacing: 4) {
-                    Text(step.instruction)
-                        .font(.subheadline)
-                        .lineLimit(isExpanded ? .max : 2)
-                    
-                    // Distance and duration info
-                    HStack(spacing: 12) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "arrow.up")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                            Text(formatDistance(step.distance))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        HStack(spacing: 4) {
-                            Image(systemName: "clock")
-                                .font(.caption2)
-                                .foregroundColor(.gray)
-                            Text(formatDuration(step.duration))
-                                .font(.caption)
-                                .foregroundColor(.gray)
-                        }
-                        
-                        Spacer()
-                    }
-                }
-                
-                Spacer()
-            }
-            .contentShape(Rectangle())
-            .onTapGesture {
-                withAnimation(.easeInOut(duration: 0.2)) {
-                    isExpanded.toggle()
-                }
-            }
-        }
-        .padding()
-        .background(Color(.systemGray6))
-        .cornerRadius(10)
-    }
-    
-    private func formatDistance(_ meters: Double) -> String {
-        if meters >= 1000 {
-            return String(format: "%.1f km", meters / 1000)
-        } else {
-            return String(format: "%.0f m", meters)
-        }
-    }
-    
-    private func formatDuration(_ seconds: Double) -> String {
-        let minutes = Int(seconds / 60)
-        if minutes > 0 {
-            return "\(minutes) min"
-        } else {
-            return "\(Int(seconds)) sec"
-        }
-    }
-}
+// No extra direction-specific view components in this file after rollback.
