@@ -34,6 +34,33 @@ struct SearchResponse: Codable {
     let results: [RestaurantResult]
     let total_found: Int
 }
+
+struct DirectionStep: Codable {
+    let instruction: String
+    let distance: Double  // in meters
+    let duration: Double  // in seconds
+}
+
+struct DirectionsResponse: Codable {
+    let steps: [DirectionStep]
+    let total_distance: Double  // in meters
+    let total_duration: Double  // in seconds
+    let encoded_polyline: String
+    let restaurant_name: String
+    let restaurant_address: String
+    let distance_to_restaurant: Double  // in meters
+    
+    enum CodingKeys: String, CodingKey {
+        case steps
+        case total_distance
+        case total_duration
+        case encoded_polyline
+        case restaurant_name
+        case restaurant_address
+        case distance_to_restaurant
+    }
+}
+
 enum MenuError: LocalizedError {
     case invalidImage
     case noLocation
@@ -294,6 +321,68 @@ func fetchRestaurantMenu(
             let decoder = JSONDecoder()
             let menuResponse = try decoder.decode(MenuItemsResponse.self, from: data)
             completion(.success(menuResponse))
+        } catch {
+            completion(.failure(.decodingError))
+        }
+    }.resume()
+}
+
+func fetchDirections(
+    foodCraving: String,
+    location: CLLocation,
+    travelMode: String = "driving",
+    completion: @escaping (Result<DirectionsResponse, MenuError>) -> Void
+) {
+    let body: [String: Any] = [
+        "food_craving": foodCraving,
+        "latitude": location.coordinate.latitude,
+        "longitude": location.coordinate.longitude,
+        "travel_mode": travelMode
+    ]
+
+    guard let url = URL(string: "https://shirley-fluidal-josette.ngrok-free.dev/directions") else {
+        completion(.failure(.networkError("Invalid URL")))
+        return
+    }
+
+    var req = URLRequest(url: url)
+    req.httpMethod = "POST"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.timeoutInterval = 180
+
+    do {
+        req.httpBody = try JSONSerialization.data(withJSONObject: body)
+    } catch {
+        completion(.failure(.networkError("Could not encode request")))
+        return
+    }
+
+    URLSession.shared.dataTask(with: req) { data, response, error in
+        if let error = error {
+            completion(.failure(.networkError(error.localizedDescription)))
+            return
+        }
+
+        guard let httpResponse = response as? HTTPURLResponse,
+              let data = data else {
+            completion(.failure(.networkError("Invalid response")))
+            return
+        }
+
+        if httpResponse.statusCode != 200 {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let detail = json["detail"] as? String {
+                completion(.failure(.serverError(detail)))
+            } else {
+                completion(.failure(.serverError("Server error: \(httpResponse.statusCode)")))
+            }
+            return
+        }
+
+        do {
+            let decoder = JSONDecoder()
+            let directionsResponse = try decoder.decode(DirectionsResponse.self, from: data)
+            completion(.success(directionsResponse))
         } catch {
             completion(.failure(.decodingError))
         }

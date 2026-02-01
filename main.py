@@ -3,12 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from typing import List, Optional
 from Restaurant import find_menu, search_restaurants_by_food
-from doordash_service import (
-    search_doordash_store, 
-    get_store_menu, 
-    calculate_delivery_quote,
-    search_menu_items
-)
+from directions_service import get_directions, search_nearby_locations
 import logging
 
 logging.basicConfig(level=logging.INFO)
@@ -54,45 +49,25 @@ class RestaurantSearchResponse(BaseModel):
     results: list[RestaurantResult]
     total_found: int
 
-class MenuItem(BaseModel):
-    id: str
-    name: str
-    description: str
-    price: float
-    category: str
-    image_url: Optional[str]
-    available: bool
+class DirectionStep(BaseModel):
+    instruction: str
+    distance: float  # in meters
+    duration: float  # in seconds
 
-class MenuItemsResponse(BaseModel):
-    store_id: str
+class DirectionsResponse(BaseModel):
+    steps: List[DirectionStep]
+    total_distance: float  # in meters
+    total_duration: float  # in seconds
+    encoded_polyline: str
     restaurant_name: str
-    items: List[MenuItem]
-    total_items: int
+    restaurant_address: str
+    distance_to_restaurant: float  # in meters
 
-class DeliveryAddress(BaseModel):
-    lat: float
-    lng: float
-    street: str
-    city: str
-    state: Optional[str] = None
-    zipcode: Optional[str] = None
-
-class OrderItem(BaseModel):
-    item_id: str
-    quantity: int = 1
-
-class DeliveryQuoteRequest(BaseModel):
-    store_id: str
-    delivery_address: DeliveryAddress
-    items: List[OrderItem]
-
-class DeliveryQuoteResponse(BaseModel):
-    subtotal: float
-    delivery_fee: float
-    service_fee: float
-    tax: float
-    total: float
-    estimated_delivery_time: int
+class LocationSearchRequest(BaseModel):
+    food_craving: str = Field(..., description="Type of food to search for")
+    latitude: float = Field(..., ge=-90, le=90)
+    longitude: float = Field(..., ge=-180, le=180)
+    travel_mode: str = Field(default="driving", description="driving, walking, bicycling, transit")
 
 @app.get("/")
 def read_root():
@@ -133,99 +108,54 @@ def search(req: RestaurantSearchRequest):
         logger.error(f"Unexpected error: {str(e)}")
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
-@app.get("/restaurant/{restaurant_name}/menu")
-def get_restaurant_menu(
-    restaurant_name: str,
-    latitude: float,
-    longitude: float
-):
+@app.post("/directions", response_model=DirectionsResponse)
+def get_directions_to_restaurant(req: LocationSearchRequest):
     """
-    Get DoorDash menu for a specific restaurant
+    Search for a restaurant matching the food craving and get directions to it
     """
     try:
-        logger.info(f"Fetching DoorDash menu for '{restaurant_name}'")
+        logger.info(f"Processing directions request for '{req.food_craving}' at location: {req.latitude}, {req.longitude}")
         
-        # Search for store on DoorDash
-        store = search_doordash_store(restaurant_name, latitude, longitude)
-        
-        if not store:
-            raise HTTPException(404, f"Restaurant '{restaurant_name}' not found on DoorDash")
-        
-        store_id = store.get("id")
-        
-        # Get menu items
-        menu_items = get_store_menu(store_id)
-        
-        return MenuItemsResponse(
-            store_id=store_id,
-            restaurant_name=store.get("name", restaurant_name),
-            items=menu_items,
-            total_items=len(menu_items)
+        # Search for a restaurant matching the food craving
+        location_info = search_nearby_locations(
+            req.food_craving, 
+            req.latitude, 
+            req.longitude
         )
         
-    except HTTPException as e:
-        logger.error(f"HTTP exception: {e.detail}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-@app.get("/restaurant/{store_id}/search")
-def search_restaurant_menu(
-    store_id: str,
-    query: str,
-    sort_by: str = "price"  # "price" or "name"
-):
-    """
-    Search for specific items in a restaurant's menu
-    Sort by cost (cheapest first by default)
-    """
-    try:
-        logger.info(f"Searching menu items for '{query}' in store {store_id}")
+        if not location_info:
+            raise HTTPException(404, f"No restaurants found serving '{req.food_craving}'")
         
-        items = search_menu_items(store_id, query)
+        restaurant_name = location_info.get("name")
+        restaurant_lat = location_info.get("lat")
+        restaurant_lng = location_info.get("lng")
+        distance_to_restaurant = location_info.get("distance", 0)
         
-        if sort_by == "price":
-            items.sort(key=lambda x: x["price"])
-        elif sort_by == "name":
-            items.sort(key=lambda x: x["name"])
+        logger.info(f"Found restaurant: {restaurant_name} at ({restaurant_lat}, {restaurant_lng})")
         
-        return {
-            "store_id": store_id,
-            "query": query,
-            "items": items,
-            "total_found": len(items)
-        }
+        # Get directions to the restaurant
+        directions = get_directions(
+            req.latitude,
+            req.longitude,
+            restaurant_lat,
+            restaurant_lng,
+            mode=req.travel_mode
+        )
         
-    except HTTPException as e:
-        logger.error(f"HTTP exception: {e.detail}")
-        raise
-    except Exception as e:
-        logger.error(f"Unexpected error: {str(e)}")
-        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
-
-@app.post("/delivery/quote", response_model=DeliveryQuoteResponse)
-def get_delivery_quote(req: DeliveryQuoteRequest):
-    """
-    Calculate delivery fee and total cost for an order
-    """
-    try:
-        logger.info(f"Calculating delivery quote for store {req.store_id}")
+        if not directions:
+            raise HTTPException(500, "Failed to get directions")
         
-        delivery_address = {
-            "lat": req.delivery_address.lat,
-            "lng": req.delivery_address.lng,
-            "street": req.delivery_address.street,
-            "city": req.delivery_address.city,
-            "state": req.delivery_address.state,
-            "zipcode": req.delivery_address.zipcode
-        }
+        logger.info(f"Generated directions with {len(directions['steps'])} steps")
         
-        items = [{"item_id": item.item_id, "quantity": item.quantity} for item in req.items]
-        
-        quote = calculate_delivery_quote(req.store_id, delivery_address, items)
-        
-        return quote
+        return DirectionsResponse(
+            steps=directions["steps"],
+            total_distance=directions["total_distance"],
+            total_duration=directions["total_duration"],
+            encoded_polyline=directions["encoded_polyline"],
+            restaurant_name=restaurant_name,
+            restaurant_address=location_info.get("address", ""),
+            distance_to_restaurant=distance_to_restaurant
+        )
         
     except HTTPException as e:
         logger.error(f"HTTP exception: {e.detail}")
