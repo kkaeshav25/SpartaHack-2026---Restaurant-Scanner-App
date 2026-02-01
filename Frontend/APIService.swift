@@ -30,6 +30,16 @@ struct RestaurantResult: Codable {
     }
 }
 
+struct RestaurantSearchResponse: Codable {
+    let results: [RestaurantResult]
+    let total_found: Int
+    
+    enum CodingKeys: String, CodingKey {
+        case results
+        case total_found
+    }
+}
+
 enum MenuError: LocalizedError {
     case networkError(String)
     case serverError(String)
