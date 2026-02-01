@@ -1,5 +1,6 @@
 import CoreLocation
-
+import Foundation
+import Combine
 class LocationManager: NSObject, ObservableObject, CLLocationManagerDelegate {
     private let manager = CLLocationManager()
     @Published var location: CLLocation?
