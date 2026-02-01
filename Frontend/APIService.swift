@@ -56,7 +56,9 @@ enum MenuError: LocalizedError {
         }
     }
 }
-
+func base64(_ image: UIImage) -> String? {
+    image.jpegData(compressionQuality: 0.7)?.base64EncodedString()
+}
 func fetchMenu(
     image: UIImage,
     location: CLLocation,
@@ -182,6 +184,3 @@ func searchRestaurants(
     }.resume()
 }
 
-func base64(_ image: UIImage) -> String? {
-    image.jpegData(compressionQuality: 0.7)?.base64EncodedString()
-}
