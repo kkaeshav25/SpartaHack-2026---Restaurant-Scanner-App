@@ -175,40 +175,42 @@ struct ContentView: View {
             
             if !searchResults.isEmpty {
                 List(searchResults, id: \.place_id) { restaurant in
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text(restaurant.name)
-                            .font(.headline)
-                        
-                        HStack(spacing: 15) {
-                            if restaurant.rating > 0 {
-                                HStack(spacing: 4) {
-                                    Image(systemName: "star.fill")
-                                        .foregroundColor(.orange)
-                                    Text(String(format: "%.1f", restaurant.rating))
-                                        .font(.subheadline)
-                                }
-                            }
+                    NavigationLink(destination: RestaurantMenuView(restaurant: restaurant)) {
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(restaurant.name)
+                                .font(.headline)
                             
-                            if restaurant.price_level > 0 {
-                                HStack(spacing: 2) {
-                                    ForEach(0..<restaurant.price_level, id: \.self) { _ in
-                                        Text("$")
+                            HStack(spacing: 15) {
+                                if restaurant.rating > 0 {
+                                    HStack(spacing: 4) {
+                                        Image(systemName: "star.fill")
+                                            .foregroundColor(.orange)
+                                        Text(String(format: "%.1f", restaurant.rating))
                                             .font(.subheadline)
-                                            .foregroundColor(.green)
                                     }
                                 }
-                            }
-                            
-                            Spacer()
-                            
-                            if let openNow = restaurant.open_now {
-                                Text(openNow ? "Open" : "Closed")
-                                    .font(.caption)
-                                    .foregroundColor(openNow ? .green : .red)
+                                
+                                if restaurant.price_level > 0 {
+                                    HStack(spacing: 2) {
+                                        ForEach(0..<restaurant.price_level, id: \.self) { _ in
+                                            Text("$")
+                                                .font(.subheadline)
+                                                .foregroundColor(.green)
+                                        }
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                if let openNow = restaurant.open_now {
+                                    Text(openNow ? "Open" : "Closed")
+                                        .font(.caption)
+                                        .foregroundColor(openNow ? .green : .red)
+                                }
                             }
                         }
+                        .padding(.vertical, 8)
                     }
-                    .padding(.vertical, 8)
                 }
             } else if !foodCraving.isEmpty && !searchLoading && searchError == nil {
                 VStack {

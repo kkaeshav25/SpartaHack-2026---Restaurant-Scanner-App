@@ -1,9 +1,6 @@
 import SwiftUI
 import UIKit
 
-import SwiftUI
-import UIKit
-
 struct CameraView: UIViewControllerRepresentable {
     @Binding var image: UIImage?
 

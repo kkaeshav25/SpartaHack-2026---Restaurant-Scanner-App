@@ -248,3 +248,54 @@ func base64(_ image: UIImage) -> String? {
     image.jpegData(compressionQuality: 0.7)?.base64EncodedString()
 
 }
+
+func fetchRestaurantMenu(
+    restaurantName: String,
+    location: CLLocation,
+    completion: @escaping (Result<MenuItemsResponse, MenuError>) -> Void
+) {
+    let encodedName = restaurantName.addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? restaurantName
+    let lat = location.coordinate.latitude
+    let lon = location.coordinate.longitude
+    
+    guard let url = URL(string: "https://shirley-fluidal-josette.ngrok-free.dev/restaurant/\(encodedName)/menu?latitude=\(lat)&longitude=\(lon)") else {
+        completion(.failure(.networkError("Invalid URL")))
+        return
+    }
+    
+    var req = URLRequest(url: url)
+    req.httpMethod = "GET"
+    req.setValue("application/json", forHTTPHeaderField: "Content-Type")
+    req.timeoutInterval = 60
+    
+    URLSession.shared.dataTask(with: req) { data, response, error in
+        if let error = error {
+            completion(.failure(.networkError(error.localizedDescription)))
+            return
+        }
+        
+        guard let httpResponse = response as? HTTPURLResponse,
+              let data = data else {
+            completion(.failure(.networkError("Invalid response")))
+            return
+        }
+        
+        if httpResponse.statusCode != 200 {
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let detail = json["detail"] as? String {
+                completion(.failure(.serverError(detail)))
+            } else {
+                completion(.failure(.serverError("Server error: \(httpResponse.statusCode)")))
+            }
+            return
+        }
+        
+        do {
+            let decoder = JSONDecoder()
+            let menuResponse = try decoder.decode(MenuItemsResponse.self, from: data)
+            completion(.success(menuResponse))
+        } catch {
+            completion(.failure(.decodingError))
+        }
+    }.resume()
+}
